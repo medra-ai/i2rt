@@ -11,19 +11,14 @@ dynamic = ["description"]
 dependencies = [
     "click<8.2.0",
     "dm-env==1.6",
-    "mink>=0.0.13",
-    "mujoco>=3.3.5",
     "numpy==2.2.6",
     "portal==3.7.3",
     "pydantic>=2.0",
-    "pygame==2.6.1",
     "python-can==4.5.0",
     "pyyaml>=6.0.0",
-    "qpsolvers[quadprog]==4.7.1",
-    "rerun-sdk>=0.32.2",
     "ruckig==0.15.3",
     "threadpoolctl==3.6.0",
-    "tyro==0.9.26",
+    "tyro>=0.8.5",
     "viser>=0.2.0",
     # USB-to-GPIO converter for the linear-rail brake + limit switches on x86/non-Pi hosts.
     "pyserial>=3.5",
@@ -35,10 +30,15 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "mink>=0.0.13",
+    "mujoco>=3.3.5",
+    "pygame==2.6.1",
     "pyright>=1.1.408",
     "pytest>=8.4.0",
     "pytest-xdist>=3.8.0",
+    "rerun-sdk>=0.32.2",
     "ruff>=0.15.6",
+    "qpsolvers[quadprog]==4.7.1",
 ]
 
 [tool.flit.module]
