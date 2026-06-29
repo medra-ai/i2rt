@@ -966,7 +966,7 @@ if __name__ == "__main__":
 
     last_gampad_mode_togged = False
     last_status_time = time.time()
-    STATUS_LOG_INTERVAL = 0.5  # persist frame/cmd/odom to the terminal every 0.5 s
+    STATUS_LOG_INTERVAL = 0.1  # persist frame/cmd/odom to the terminal every 0.1 s
     last_rail_log_time = time.time()
     RAIL_LOG_INTERVAL = 1.0  # Log linear rail position every 1 second
     try:
