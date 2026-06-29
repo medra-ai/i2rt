@@ -13,7 +13,7 @@ motor_control_interface = DMSingleMotorCanInterface(
 )
 
 if args.motor_id < 0:
-    motor_ids = [1, 2, 3, 4, 5, 6, 7]
+    motor_ids = [1, 2, 3, 4, 5, 6, 7, 8]
 else:
     motor_ids = [args.motor_id]
 
