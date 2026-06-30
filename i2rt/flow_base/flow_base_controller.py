@@ -571,7 +571,7 @@ class Vehicle(Robot):
         return self.caster_module_controller.motor_interface.running
 
     def close(self) -> None:
-        """Clean up resources: stop control loop and set motors to neutral."""
+        """Stop the control loop, neutralize the motors, and stop the motor CAN thread."""
         try:
             if self.control_loop_running:
                 self.stop_control()
@@ -580,6 +580,15 @@ class Vehicle(Robot):
             logger.info("Vehicle closed successfully")
         except Exception as e:
             logger.error(f"Vehicle close error: {e}")
+        finally:
+            # The motor interface runs a NON-daemon CAN thread; without closing it the
+            # interpreter hangs at shutdown joining it (Ctrl-C appears to need two presses).
+            # Best-effort so a fault here can't block exit.
+            try:
+                if hasattr(self, "caster_module_controller"):
+                    self.caster_module_controller.motor_interface.close()
+            except Exception as e:
+                logger.error(f"Motor interface close error: {e}")
 
 
 class LinearRailVehicle(Vehicle):
@@ -1049,7 +1058,12 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("Exiting...")
     finally:
-        # Ensure close is always called, even on Ctrl+C
+        # Ensure close is always called, even on Ctrl+C. Stop the RPC server first (no new
+        # commands), then the vehicle (neutralize + stop the motor CAN thread).
+        try:
+            server.close()
+        except Exception as e:
+            logger.error(f"Error closing server: {e}")
         try:
             vehicle.close()
         except Exception as e:
