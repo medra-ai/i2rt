@@ -58,7 +58,10 @@ class FlowBaseClient:
         self.command = {"target_velocity": np.zeros(self.num_dofs), "frame": "local"}
         self._lock = threading.Lock()
         self.running = True
-        self._thread = threading.Thread(target=self._update_command)
+        # Daemon: on a dead server the background send can wedge in portal's call()
+        # (timed-out futures pile up against maxinflight), so close()'s bounded join may
+        # not reap it. A daemon thread never blocks interpreter exit.
+        self._thread = threading.Thread(target=self._update_command, daemon=True)
         self._thread.start()
 
     def _update_command(self) -> None:
