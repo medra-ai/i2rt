@@ -83,6 +83,16 @@ class FlowBaseClient:
                     self.command["target_velocity"] = np.zeros(self.num_dofs)
             time.sleep(0.02)
 
+    @property
+    def connected(self) -> bool:
+        """Whether the transport currently has a live connection to the server.
+
+        Cheap, non-blocking (socket state, no RPC). False during a disconnect — note a
+        clean server close trips this immediately, while a blackholed link stays True until
+        TCP notices.
+        """
+        return self.client.connected
+
     def get_odometry(self) -> Any:
         return self.client.get_odometry({}).result(timeout=RPC_TIMEOUT_S)
 
