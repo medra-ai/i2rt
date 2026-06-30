@@ -965,7 +965,8 @@ if __name__ == "__main__":
     gamepad_command_override = True
 
     last_gampad_mode_togged = False
-    count = 0
+    last_status_time = time.time()
+    STATUS_LOG_INTERVAL = 0.1  # persist frame/cmd/odom to the terminal every 0.1 s
     last_rail_log_time = time.time()
     RAIL_LOG_INTERVAL = 1.0  # Log linear rail position every 1 second
     try:
@@ -1016,14 +1017,18 @@ if __name__ == "__main__":
                 # Remote commands are already physical units (m/s, m/s, rad/s, rail m/s)
                 cmd = user_cmd
                 frame = user_frame
-            if count % 20 == 0:
-                # print up 1 float point
-                # print(f"frame: {frame}, cmd: {cmd[0]:.1f}, {cmd[1]:.1f}, {cmd[2]:.1f}, rail: {cmd[3]:.1f}")
-                sys.stdout.write(f"\rframe: {frame} cmd: {cmd[0]:.1f} {cmd[1]:.1f} {cmd[2]:.1f} rail: {cmd[3]:.1f}")
+            current_time = time.time()
+            if current_time - last_status_time >= STATUS_LOG_INTERVAL:
+                odo = vehicle.get_odometry()["position"]
+                ox, oy, _ = odo["translation"]
+                sys.stdout.write(
+                    f"\rframe: {frame} cmd: {cmd[0]:+.2f} {cmd[1]:+.2f} {cmd[2]:+.2f} rail: {cmd[3]:+.2f}"
+                    f" | odom: x={ox:+.2f} y={oy:+.2f} th={odo['rotation']:+.2f}"
+                )
                 sys.stdout.flush()
+                last_status_time = current_time
 
             # Log linear rail position and velocity every 1 second (only when rail is enabled)
-            current_time = time.time()
             if current_time - last_rail_log_time >= RAIL_LOG_INTERVAL:
                 if vehicle.linear_rail is not None:
                     try:
@@ -1048,8 +1053,6 @@ if __name__ == "__main__":
                     except Exception as e:
                         print(f"Failed to get linear rail state: {e}")
                 last_rail_log_time = current_time
-
-            count += 1
 
             # Set target velocity: [x, y, theta, linear_rail] in physical units
             vehicle.set_target_velocity(cmd, frame=frame)
