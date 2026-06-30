@@ -24,6 +24,12 @@ DEFAULT_MAX_VEL_Y = 0.5  # m/s
 DEFAULT_MAX_VEL_THETA = np.pi / 2  # rad/s
 DEFAULT_MAX_VEL_Z = 0.5  # m/s
 
+# RPC result-wait timeouts (seconds). Bound every server round-trip so a dead/unreachable
+# Pi fast-fails (raises TimeoutError) instead of blocking the caller forever. Without these
+# a control loop hangs on the next read, and a brake can never land.
+RPC_TIMEOUT_S = 2.0  # blocking reads (odometry, wheel/rail state)
+COMMAND_TIMEOUT_S = 0.5  # background velocity sender (runs every 20 ms)
+
 
 class FlowBaseClient:
     def __init__(
@@ -57,19 +63,32 @@ class FlowBaseClient:
 
     def _update_command(self) -> None:
         while self.running:
+            # Snapshot under the lock, then RPC OUTSIDE it: holding the lock across a
+            # blocking send means a consumer's brake can never acquire it on a dead base.
             with self._lock:
-                self.client.set_target_velocity(self.command).result()
+                command = {
+                    "target_velocity": self.command["target_velocity"].copy(),
+                    "frame": self.command["frame"],
+                }
+            try:
+                self.client.set_target_velocity(command).result(timeout=COMMAND_TIMEOUT_S)
+            except Exception:
+                # Comms lost: stop replaying the last velocity so a recovered link cannot
+                # lurch the base back into motion — resume at zero. Consumers detect the
+                # fault via reads timing out and stop the mission.
+                with self._lock:
+                    self.command["target_velocity"] = np.zeros(self.num_dofs)
             time.sleep(0.02)
 
     def get_odometry(self) -> Any:
-        return self.client.get_odometry({}).result()
+        return self.client.get_odometry({}).result(timeout=RPC_TIMEOUT_S)
 
     def get_wheel_states(self) -> Any:
         """Return full per-motor state for the 8 base motors, grouped {steer, drive}.
 
         Each group has pos (rad), vel (rad/s), and eff (torque, Nm) arrays of length 4.
         """
-        return self.client.get_wheel_states({}).result()
+        return self.client.get_wheel_states({}).result(timeout=RPC_TIMEOUT_S)
 
     def get_observation(self) -> Any:
         """Return combined observation: odometry, wheel states, and linear rail state if enabled."""
@@ -80,7 +99,7 @@ class FlowBaseClient:
         return obs
 
     def reset_odometry(self) -> Any:
-        return self.client.reset_odometry({}).result()
+        return self.client.reset_odometry({}).result(timeout=RPC_TIMEOUT_S)
 
     def set_target_velocity(self, target_velocity: np.ndarray, frame: str = "local") -> None:
         """Set target velocity for base and optionally linear rail.
@@ -104,7 +123,7 @@ class FlowBaseClient:
         """Get the current state of the linear rail."""
         if not self.with_linear_rail:
             raise ValueError("Linear rail not enabled. Initialize FlowBaseClient with with_linear_rail=True")
-        return self.client.get_linear_rail_state({}).result()
+        return self.client.get_linear_rail_state({}).result(timeout=RPC_TIMEOUT_S)
 
     def set_linear_rail_velocity(self, velocity: float) -> None:
         """Set the velocity of the linear rail.
