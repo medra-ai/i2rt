@@ -793,9 +793,15 @@ class LinearRailVehicle(Vehicle):
             logger.error(f"Failed to set linear rail velocity: {e}", exc_info=True)
 
     def close(self) -> None:
-        """Clean up resources: stop linear rail and engage brake."""
-        if hasattr(self, "linear_rail"):
-            self.linear_rail.cleanup()
+        """Clean up resources: stop the linear rail, then stop the base (brake/neutral)."""
+        # linear_rail is None when the rail is disabled (the default), so `hasattr` isn't
+        # enough — guard the value. Keep it best-effort so super().close() (the base
+        # motor-neutral / brake) always runs even if rail cleanup fails.
+        if getattr(self, "linear_rail", None) is not None:
+            try:
+                self.linear_rail.cleanup()
+            except Exception as e:
+                logger.error(f"Linear rail cleanup error: {e}")
         super().close()
 
 
